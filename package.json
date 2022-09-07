@@ -10,7 +10,9 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "colors": "^1.4.0",
     "dotenv": "^16.0.2",
-    "ethers": "^5.7.0"
+    "ethers": "^5.7.0",
+    "ora": "^6.1.2"
   }
 }
