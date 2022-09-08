@@ -12,9 +12,10 @@ const network = 'homestead';
 
 // Configure smart contract to interact with
 const address = '0x888F98EfcFfB7822e6EEbd249262853DB960deAD';   // Using plan-z contract/
-const abi = JSON.parse(fs.readFileSync('abi.json'));            // Using plan-z ABI/
+const contractABI = 'abi.json';                                 // Using plan-z ABI/
 const height = 14927293; // Set block height                    // Using plan-z launch block/
 
+const abi = JSON.parse(fs.readFileSync(contractABI));
 const provider = new ethers.providers.AlchemyProvider( network, key );
 const contract = new ethers.Contract(address, abi, provider);
 
@@ -42,13 +43,15 @@ async function ownerOf(id) {
     };
 
     let owner = await oraPromise(contract.ownerOf( id, { blockTag: height } ), status);
-    console.log(`${colors.blue(owner)} owns #${colors.green(id)}`);
+    console.log(`${colors.blue(owner)} owns ${colors.green('#')}${colors.green(id)}`);
 
     let result = `\n${owner},${id}`;
     output += result;
 };
 
 async function snapshot() {
+    // Find supply, do ownerOf forLoop, print/export output string as csv file. 
+
     let status = {
         text: `Counting total supply of ${contractName} at block ${height}...`, 
         successText: ' Done counting.', 
