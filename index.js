@@ -17,27 +17,47 @@ const settings = {
 
 const address = snapshotConfig.address;
 const height = snapshotConfig.block; 
+const withBalances = snapshotConfig.withBalances;
 
 const alchemy = new Alchemy(settings);
-let contractName = '';
 
 makeSpace(2);
-
 const currentBlock = await oraPromise(alchemy.core.getBlockNumber(), {text: 'Getting block data...', successText: ' Block data OK!', failText: ':('});
-let output = `(owners of ${address} at ${ ((height > 0) ? (height) : (currentBlock)) })`;
 
-async function name() {
-    let status = {
-        text: 'Querying the blockchain...', 
-        successText: ' Contract found!', 
-        failText: ':('
+let status = {        
+    text: `Fetching data for contract ${address}...`, 
+    successText: ` Contract found!`, 
+    failText: 'Contract not found :('
     };
+
+let collectionName = '';
+let supply = 0;
+
+let metadata = await oraPromise(alchemy.nft.getContractMetadata(address), status);
+
+if (metadata.tokenType == 'ERC721') { // if contract tokenType is ERC721
+    status = {
+        text: `Fetching data for collection ${collectionName}...`, 
+        successText: ' OK.', 
+        failText: ':('
+    }
+    collectionName = metadata.name;
+    supply = metadata.totalSupply;
+    console.log(`📈 Total supply of ${colors.cyan.underline(collectionName)} is ${colors.white(supply)} units.`);
     
-    let metadata = await oraPromise(alchemy.nft.getContractMetadata(address), status);
-    console.log(`🌐 Reading contract ${colors.cyan.underline(metadata.name)}...`);
-    contractName = metadata.name;
-    makeSpace(1);
-};
+} else { // if contract tokenType is ERC1155
+    status = {
+        text: `Fetching data for contract ${address}...`, 
+        successText: ' OK.', 
+        failText: ':('
+    }
+    collectionName = address;
+    supply = null;
+    console.log(`📈 Token standard is ERC1155, skipping supply count.`)
+
+}
+
+let output = `(owners of ${address} at ${ ((height > 0) ? (height) : (currentBlock)) })`;
 
 function write(data) {
     // Saves the output as csv file.
@@ -61,11 +81,10 @@ function makeSpace(n) {
 
 
 async function getOwners() {
-    // @WARN: Alchemy getOwnersForCollection incorrectly stores the token balance. Avoid using withTokenBalances option for now.
-    // Get owner for collection, then store to be saved as csv.
+    // Get owners for collection, then store to be saved as csv.
 
     let status = {
-        text: `Finding owners of ${contractName}...`, 
+        text: `Finding owners of ${collectionName}...`, 
         successText: ' Owners found.', 
         failText: `:(`
     };
@@ -80,31 +99,72 @@ async function getOwners() {
         status);
 
     
-    console.log(`🔹 ${colors.white(result.length, 'wallets')} own at least one ${colors.cyan.underline(contractName)} at block ${ colors.green((height > 0) ? (height) : ('latest')) }.`);
+    console.log(`🔹 ${colors.white(result.length, 'wallets')} own at least one ${colors.cyan.underline((metadata.tokenType == 'ERC721') ? collectionName : address)} at block ${ colors.green((height > 0) ? (height) : ('latest')) }.`);
     result.forEach(store);
 
     write(output);
 };
 
-async function snapshot() {
-    // Get contract metadata, and then snapshot the owners.
+async function getOwnersWithBalance() {
+    // Get owners for collection with id and balance of each id, then store to be saved as csv.
 
     let status = {
-        text: `Counting total supply of ${contractName}...`, 
-        successText: ' Done counting.', 
-        failText: ':('
+        text: `Finding owners of ${collectionName}...`, 
+        successText: ' Owners found.', 
+        failText: `:(`
     };
 
-    let metadata = await oraPromise(alchemy.nft.getContractMetadata(address), status);
-    let supply = metadata.totalSupply;
-    console.log(`📈 Total supply is ${colors.white(supply)} units.`);
-    makeSpace(1);
+    let result = [];
+    let options = { method: 'GET', headers: {Accept: 'application/json'} };
+    await oraPromise(
+            fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=true&block=${height}`, options)
+            .then(response => response.json())
+            .then(response => result = response.ownerAddresses)
+            .catch(err => console.error(colors.red(err))),
+        status);
+    
+    let processed = []; // An array of address, id, and balance as string.
+    result.forEach(process); // Process every owner and every nft from the response.
+    
+    console.log(`🔹 ${colors.white(result.length, 'wallets')} own ${colors.cyan.underline(address)} token at block ${ colors.green((height > 0) ? (height) : ('latest')) }.`);
 
-    await getOwners();
+    processed.forEach(store);
+    write(output);
+    
+    function process(item) {
+        // Process each id and its balance to be a string, append ownerAddress in front.
+        let owner = item.ownerAddress;
+        let balanceArray = [];
+        item.tokenBalances.forEach(processBalance); 
+        balanceArray.forEach(appendOwner);
+
+        function processBalance(item) {
+            let result = '';
+            let id = Number(item.tokenId);
+            let balance = String(item.balance);
+            result = `${id},${balance}`;
+            balanceArray.push(result);
+        };
+
+        function appendOwner(item) {
+            let result = `${owner},${item}`;
+            processed.push(result);
+        };
+    };
+    
+};
+
+async function snapshot() {
+    // Trigger different functions depending on withBalance state.
+
+    if (withBalances == false) {
+        await getOwners();
+    } else {
+        await getOwnersWithBalance();
+    }
+
     makeSpace(2);
 };
 
 makeSpace(1);
-
-await name();
 snapshot();
