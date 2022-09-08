@@ -10,9 +10,11 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "alchemy-sdk": "^2.0.3",
     "colors": "^1.4.0",
     "dotenv": "^16.0.2",
     "ethers": "^5.7.0",
+    "node-fetch": "^3.2.10",
     "ora": "^6.1.2"
   }
 }

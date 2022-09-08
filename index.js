@@ -1,26 +1,30 @@
-import { BigNumber, ethers } from 'ethers';
+import { Network, Alchemy } from 'alchemy-sdk';
 import colors from 'colors/safe.js';
 import * as dotenv from 'dotenv';
-import { stdout } from 'process';
-import {oraPromise} from 'ora';
+import { oraPromise } from 'ora';
+import fetch from 'node-fetch';
 import fs from 'fs';
 dotenv.config();
 
+// Configure snapshot in config.json
+const snapshotConfig = JSON.parse(fs.readFileSync('config.json'));
+
 // Configure Alchemy key and chain.
-const key = process.env.ALCHEMY_KEY;
-const network = 'homestead';
+const settings = {
+    apiKey: process.env.ALCHEMY_KEY,
+    network: Network.ETH_MAINNET,
+};
 
-// Configure smart contract to interact with
-const address = '0x888F98EfcFfB7822e6EEbd249262853DB960deAD';   // Using plan-z contract/
-const contractABI = 'abi.json';                                 // Using plan-z ABI/
-const height = 14927293; // Set block height                    // Using plan-z launch block/
+const address = snapshotConfig.address;
+const height = snapshotConfig.block; 
 
-const abi = JSON.parse(fs.readFileSync(contractABI));
-const provider = new ethers.providers.AlchemyProvider( network, key );
-const contract = new ethers.Contract(address, abi, provider);
-
+const alchemy = new Alchemy(settings);
 let contractName = '';
-let output = '( address, id )';
+
+makeSpace(2);
+
+const currentBlock = await oraPromise(alchemy.core.getBlockNumber(), {text: 'Getting block data...', successText: ' Block data OK!', failText: ':('});
+let output = `(owners of ${address} at ${ ((height > 0) ? (height) : (currentBlock)) })`;
 
 async function name() {
     let status = {
@@ -29,53 +33,25 @@ async function name() {
         failText: ':('
     };
     
-    let name = await oraPromise(contract.name(), status);
-    console.log(`🌐 Interacting with contract ${colors.cyan.underline(name)}...`);
-    contractName = name;
+    let metadata = await oraPromise(alchemy.nft.getContractMetadata(address), status);
+    console.log(`🌐 Reading contract ${colors.cyan.underline(metadata.name)}...`);
+    contractName = metadata.name;
     makeSpace(1);
 };
 
-async function ownerOf(id) {
-    let status = {
-        text: `Finding owner of ${contractName} #${id}...`, 
-        successText: ' OK.', 
-        failText: `Not OK.`
-    };
-
-    let owner = await oraPromise(contract.ownerOf( id, { blockTag: height } ), status);
-    console.log(`${colors.blue(owner)} owns ${colors.green('#')}${colors.green(id)}`);
-
-    let result = `\n${owner},${id}`;
-    output += result;
+function write(data) {
+    // Saves the output as csv file.
+    let path = `snapshot_${address.slice(0, 8)}_at_${((height > 0) ? (height) : (currentBlock))}.csv`;
+    fs.writeFileSync(path, data);
+    console.log(`🌈 Snapshot completed. Data saved as ${path} 🌈`);
+    return;
 };
 
-async function snapshot() {
-    // Find supply, do ownerOf forLoop, print/export output string as csv file. 
-
-    let status = {
-        text: `Counting total supply of ${contractName} at block ${height}...`, 
-        successText: ' Done counting.', 
-        failText: ':('
-    };
-
-    let supply = await oraPromise(contract.totalSupply( { blockTag: height } ), status)
-    let nsupply = supply.toString();
-    console.log(`📈 Total supply at block ${colors.green(height)} is ${colors.white(nsupply)} units.`);
-    makeSpace(1);
-
-    await ownerOf(1);
-    makeSpace(3);
-
+function store(item) {
+    // Stores to output variable. 
+    let itemstr = `\n${item}`;
+    output += itemstr;
 };
-
-makeSpace(2);
-await name();
-snapshot();
-
-
-
-
-// Cosmetic functions, ignore.
 
 function makeSpace(n) {
     for (let i=0; i<n; i++) {
@@ -83,3 +59,52 @@ function makeSpace(n) {
     };
 };
 
+
+async function getOwners() {
+    // @WARN: Alchemy getOwnersForCollection incorrectly stores the token balance. Avoid using withTokenBalances option for now.
+    // Get owner for collection, then store to be saved as csv.
+
+    let status = {
+        text: `Finding owners of ${contractName}...`, 
+        successText: ' Owners found.', 
+        failText: `:(`
+    };
+
+    let result = [];
+    let options = { method: 'GET', headers: {Accept: 'application/json'} };
+    await oraPromise(
+            fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=false&block=${height}`, options)
+            .then(response => response.json())
+            .then(response => result = response.ownerAddresses)
+            .catch(err => console.error(colors.red(err))),
+        status);
+
+    
+    console.log(`🔹 ${colors.white(result.length, 'wallets')} own at least one ${colors.cyan.underline(contractName)} at block ${ colors.green((height > 0) ? (height) : ('latest')) }.`);
+    result.forEach(store);
+
+    write(output);
+};
+
+async function snapshot() {
+    // Get contract metadata, and then snapshot the owners.
+
+    let status = {
+        text: `Counting total supply of ${contractName}...`, 
+        successText: ' Done counting.', 
+        failText: ':('
+    };
+
+    let metadata = await oraPromise(alchemy.nft.getContractMetadata(address), status);
+    let supply = metadata.totalSupply;
+    console.log(`📈 Total supply is ${colors.white(supply)} units.`);
+    makeSpace(1);
+
+    await getOwners();
+    makeSpace(2);
+};
+
+makeSpace(1);
+
+await name();
+snapshot();
