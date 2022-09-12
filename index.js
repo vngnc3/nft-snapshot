@@ -18,6 +18,7 @@ const settings = {
 const address = snapshotConfig.address;
 const height = snapshotConfig.block; 
 const withBalances = snapshotConfig.withBalances;
+const idFilter = snapshotConfig.tokenid;
 
 const alchemy = new Alchemy(settings);
 
@@ -143,7 +144,14 @@ async function getOwnersWithBalance() {
             let id = Number(item.tokenId);
             let balance = String(item.balance);
             result = `${id},${balance}`;
-            balanceArray.push(result);
+            
+            // if idFilter is ommitted, push it regardless
+            // if idFilter is defined, push only if it matches the id.
+            if (idFilter == "") { 
+                balanceArray.push(result)
+            } else if (id == idFilter) {
+                balanceArray.push(result)
+            };
         };
 
         function appendOwner(item) {
