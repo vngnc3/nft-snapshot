@@ -31,10 +31,11 @@
 - Make a new `.env` file in the directory with your Alchemy API key like so:
 > `ALCHEMY_KEY="<YOUR-ALCHEMY-KEY-GOES-HERE>"`  
 
-- Configure the snapshot in `config.json` file: 
-> - Set the contract address,  
-> - Target block (leave empty for latest block),  
-> - withBalances
+- Configure the snapshot in `config.json`: 
+> - `address` target contract/collection address to be snapshotted,  
+> - `block` target block to snapshot from (leave empty to the get latest block),  
+> - `withBalances` set to true to snapshot owner and their balances,  
+> - `tokenid` filter the tokenid to be snapshotted (for semi-fungible token standard). Leave it empty to omit filter.  
 
 - Run `node index` to snapshot.  
 
