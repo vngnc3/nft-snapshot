@@ -9,16 +9,18 @@ dotenv.config();
 // Configure snapshot in config.json
 const snapshotConfig = JSON.parse(fs.readFileSync('config.json'));
 
-// Configure Alchemy key and chain.
-const settings = {
-    apiKey: process.env.ALCHEMY_KEY,
-    network: Network.ETH_MAINNET,
-};
 
 const address = snapshotConfig.address;
 const height = snapshotConfig.block; 
 const withBalances = snapshotConfig.withBalances;
 const idFilter = snapshotConfig.tokenid;
+const targetNetwork = snapshotConfig.targetNetwork;
+
+// Configure Alchemy key and chain.
+const settings = {
+    apiKey: process.env.ALCHEMY_KEY,
+    network: Network[targetNetwork],
+};
 
 const alchemy = new Alchemy(settings);
 
@@ -93,7 +95,7 @@ async function getOwners() {
     let result = [];
     let options = { method: 'GET', headers: {Accept: 'application/json'} };
     await oraPromise(
-            fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=false&block=${height}`, options)
+            fetch(`https://${settings.network}.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=false&block=${height}`, options)
             .then(response => response.json())
             .then(response => result = response.ownerAddresses)
             .catch(err => console.error(colors.red(err))),
@@ -118,7 +120,7 @@ async function getOwnersWithBalance() {
     let result = [];
     let options = { method: 'GET', headers: {Accept: 'application/json'} };
     await oraPromise(
-            fetch(`https://eth-mainnet.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=true&block=${height}`, options)
+            fetch(`https://${settings.network}.g.alchemy.com/nft/v2/${settings.apiKey}/getOwnersForCollection?contractAddress=${address}&withTokenBalances=true&block=${height}`, options)
             .then(response => response.json())
             .then(response => result = response.ownerAddresses)
             .catch(err => console.error(colors.red(err))),

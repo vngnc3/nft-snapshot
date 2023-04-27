@@ -36,6 +36,7 @@
 > - `block` target block to snapshot from (leave empty to the get latest block),  
 > - `withBalances` set to true to snapshot owner and their balances,  
 > - `tokenid` filter the tokenid to be snapshotted (for semi-fungible token standard). Leave it empty to omit filter.  
+> - `targetNetwork` the network you want, i.e. for ethereum mainnet put "ETH_MAINNET", for optimism mainnet put "OPT_MAINNET".  
 
 - Run `node index` to snapshot.  
 

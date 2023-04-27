@@ -1,6 +1,7 @@
 {
-    "address": "0x6a46B8591679f53AE1AEd3Bae673F4D2208f7177",
+    "address": "0x5Af0D9827E0c53E4799BB226655A1de152A425a5",
     "block": "",
-    "withBalances": true,
-    "tokenid": "1"
+    "withBalances": false,
+    "tokenid": "",
+    "targetNetwork": "ETH_MAINNET"
 }
